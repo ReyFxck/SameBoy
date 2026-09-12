@@ -31,6 +31,7 @@ jobs:
               # PS2-specific SameBoy runtime defaults and Gearboy-style fast path.
               python3 tools/ps2/patch_sameboy_ps2.py libretro/libretro.c
               python3 tools/ps2/patch_sameboy_ps2_fast.py .
+              python3 tools/ps2/patch_sameboy_ps2_frame_runner.py .
 
               # Static SameBoy libretro core for the R5900.
               make -C libretro -f Makefile.ps2 clean all
