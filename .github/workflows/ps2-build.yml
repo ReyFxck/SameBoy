@@ -17,21 +17,82 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build SameBoy core for PS2
+      - name: Build SameBoy + RetroArch PS2 frontend
         run: |
           docker run --rm \
             -v "$PWD:/src" \
             -w /src \
             ghcr.io/ps2dev/ps2dev:latest \
-            sh -c 'apk add --no-cache make git util-linux && make -C libretro -f Makefile.ps2 clean all'
+            sh -lc '
+              set -eux
+              apk add --no-cache make git util-linux python3 xorriso
+              git config --global --add safe.directory /src
+
+              # PS2-specific SameBoy runtime defaults, kept out of upstream code.
+              python3 tools/ps2/patch_sameboy_ps2.py libretro/libretro.c
+
+              # Static SameBoy libretro core for the R5900.
+              make -C libretro -f Makefile.ps2 clean all
+
+              # Pin the frontend so our PS2 patches are reproducible.
+              rm -rf RetroArch
+              git clone https://github.com/libretro/RetroArch.git RetroArch
+              cd RetroArch
+              git checkout 96bb0daa119b8a4c292f0ff9203f1bb771965e12
+              cp ../libretro/sameboy_libretro_ps2.a ./libretro_ps2.a
+              python3 ../tools/ps2/patch_retroarch_ps2.py .
+
+              # Full RetroArch PS2 menu/frontend with SameBoy linked statically.
+              make -f Makefile.ps2 clean
+              make -f Makefile.ps2 -j2
+              cd ..
+
+              # Keep both an unpacked ELF for symbolizing/debugging and the
+              # launch ELF used by the disc image.
+              rm -rf dist
+              mkdir -p dist/iso/ROMS
+              cp RetroArch/retroarch_ps2.elf dist/SAMEBOY_UNPACKED.ELF
+              if command -v ps2-packer >/dev/null 2>&1; then
+                ps2-packer RetroArch/retroarch_ps2.elf dist/SAMEBOY.ELF
+              else
+                cp RetroArch/retroarch_ps2.elf dist/SAMEBOY.ELF
+              fi
+              cp dist/SAMEBOY.ELF dist/iso/SAMEBOY.ELF
+
+              printf "BOOT2 = cdrom0:\\\\SAMEBOY.ELF;1\nVER = 1.00\nVMODE = NTSC\n" > dist/iso/SYSTEM.CNF
+
+              # Copyrighted test ROMs never enter Git. Reserve a fixed-size
+              # extent which can be replaced byte-for-byte after CI.
+              dd if=/dev/zero of=dist/iso/ROMS/MARIO.GB bs=65536 count=1
+
+              xorriso -as mkisofs \
+                -iso-level 1 -J -V SAMEBOY_PS2 \
+                -o dist/sameboy_ps2_template.iso dist/iso
+
+              xorriso -indev dist/sameboy_ps2_template.iso \
+                -find /ROMS/MARIO.GB -exec report_lba -- \
+                > dist/rom_lba.txt
+            '
 
       - name: Inspect output
         run: |
-          ls -lh libretro/sameboy_libretro_ps2.a
-          sha256sum libretro/sameboy_libretro_ps2.a
+          ls -lh libretro/sameboy_libretro_ps2.a \
+                 dist/SAMEBOY.ELF \
+                 dist/SAMEBOY_UNPACKED.ELF \
+                 dist/sameboy_ps2_template.iso
+          cat dist/rom_lba.txt
+          sha256sum libretro/sameboy_libretro_ps2.a \
+                    dist/SAMEBOY.ELF \
+                    dist/SAMEBOY_UNPACKED.ELF \
+                    dist/sameboy_ps2_template.iso
 
-      - name: Upload PS2 core
+      - name: Upload PS2 build
         uses: actions/upload-artifact@v4
         with:
-          name: sameboy-libretro-ps2
-          path: libretro/sameboy_libretro_ps2.a
+          name: sameboy-ps2-full
+          path: |
+            libretro/sameboy_libretro_ps2.a
+            dist/SAMEBOY.ELF
+            dist/SAMEBOY_UNPACKED.ELF
+            dist/sameboy_ps2_template.iso
+            dist/rom_lba.txt
