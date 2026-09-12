@@ -1,0 +1,57 @@
+# SameBoy libretro core for PlayStation 2
+#
+# This is intentionally separate from the upstream Makefile while the PS2
+# port is being brought up. It builds a static libretro archive suitable for
+# linking into RetroArch's PS2 frontend.
+
+CORE_DIR := ..
+TARGET := sameboy_libretro_ps2.a
+
+CC := mips64r5900el-ps2-elf-gcc
+AR := mips64r5900el-ps2-elf-gcc-ar
+STATIC_LINKING := 1
+
+CFLAGS := -O3 -DNDEBUG \
+          -DPS2 -D_EE -G0 -march=r5900 \
+          -ffast-math -fomit-frame-pointer -fno-strict-aliasing \
+          -fno-stack-protector -ffunction-sections -fdata-sections \
+          -D__LIBRETRO__ -D_GNU_SOURCE -D_USE_MATH_DEFINES \
+          -std=gnu11
+
+include Makefile.common
+
+CFLAGS += -DGB_VERSION=\"$(VERSION)\" $(INCFLAGS)
+
+OBJECTS := $(patsubst $(CORE_DIR)/%.c,$(CORE_DIR)/build/obj/ps2/%_libretro.o,$(SOURCES_C))
+
+all: $(TARGET)
+
+# SameBoy keeps its open-source boot ROMs as binary blobs and normally creates
+# these C arrays during the libretro build.
+$(CORE_DIR)/libretro/%_boot.c: $(CORE_DIR)/BootROMs/prebuilt/%_boot.bin
+	@echo "  GEN     $@"
+	@echo "/* AUTO-GENERATED */" > $@
+	@echo "const unsigned char $(notdir $(@:%.c=%))[] = {" >> $@
+	@hexdump -v -e '/1 "0x%02x, "' $< >> $@
+	@echo "};" >> $@
+	@echo "const unsigned $(notdir $(@:%.c=%))_length = sizeof($(notdir $(@:%.c=%)));" >> $@
+
+$(TARGET): $(OBJECTS)
+	@echo "  AR      $@"
+	$(AR) rcs $@ $(OBJECTS)
+
+$(CORE_DIR)/build/obj/ps2/%_libretro.o: $(CORE_DIR)/%.c
+	@mkdir -p $(dir $@)
+	@echo "  CC      $<"
+	$(CC) -c -o $@ $< $(CFLAGS) -DGB_INTERNAL
+
+clean:
+	rm -rf $(CORE_DIR)/build/obj/ps2
+	rm -f $(TARGET)
+	rm -f $(CORE_DIR)/libretro/agb_boot.c \
+	      $(CORE_DIR)/libretro/cgb_boot.c \
+	      $(CORE_DIR)/libretro/dmg_boot.c \
+	      $(CORE_DIR)/libretro/sgb_boot.c \
+	      $(CORE_DIR)/libretro/sgb2_boot.c
+
+.PHONY: all clean
