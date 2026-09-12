@@ -17,6 +17,13 @@ def rep(old: str, new: str, label: str):
 
 # Keep normal POSIX directory handles for mc0:/mass:/etc, but add a dedicated
 # legacy FILEIO handle + aligned ioman dirent for optical-disc browsing.
+#
+# IMPORTANT: keep the DMA target LAST in the PS2-only portion of the struct.
+# fioDread() transfers an io_dirent_t through SIF DMA, and the transfer/cache
+# machinery may touch the aligned tail. The old layout put ps2_cdfs after the
+# DMA buffer; that flag could be clobbered to zero, causing the generic dirent
+# path to dereference the NULL POSIX entry immediately after a successful
+# cdfs:/ dopen.
 rep(
 """#else
    DIR *directory;
@@ -29,8 +36,8 @@ rep(
    const struct dirent *entry;
 #if defined(PS2)
    int ps2_cdfs_dir;
-   io_dirent_t ps2_cdfs_entry __attribute__((aligned(64)));
    bool ps2_cdfs;
+   io_dirent_t ps2_cdfs_entry __attribute__((aligned(64)));
 #endif
 #endif
 #if defined(ANDROID) && defined(HAVE_SAF)
@@ -94,10 +101,14 @@ rep(
 """bool retro_vfs_readdir_impl(libretro_vfs_implementation_dir *rdir)
 {
 #if defined(PS2)
-   if (rdir && rdir->ps2_cdfs)
+   if (rdir && rdir->ps2_cdfs && path_is_ps2_cdfs(rdir->orig_path))
    {
+      int rv;
       memset(&rdir->ps2_cdfs_entry, 0, sizeof(rdir->ps2_cdfs_entry));
-      return fioDread(rdir->ps2_cdfs_dir, &rdir->ps2_cdfs_entry) > 0;
+      rv = fioDread(rdir->ps2_cdfs_dir, &rdir->ps2_cdfs_entry);
+      if (rv > 0)
+         rdir->ps2_cdfs_entry.name[sizeof(rdir->ps2_cdfs_entry.name) - 1] = '\\0';
+      return rv > 0;
    }
 #endif
 #ifdef HAVE_SMBCLIENT
@@ -112,7 +123,7 @@ rep(
 """const char *retro_vfs_dirent_get_name_impl(libretro_vfs_implementation_dir *rdir)
 {
 #if defined(PS2)
-   if (rdir && rdir->ps2_cdfs)
+   if (rdir && path_is_ps2_cdfs(rdir->orig_path))
       return rdir->ps2_cdfs_entry.name;
 #endif
 #ifdef HAVE_SMBCLIENT
@@ -127,7 +138,7 @@ rep(
 """bool retro_vfs_dirent_is_dir_impl(libretro_vfs_implementation_dir *rdir)
 {
 #if defined(PS2)
-   if (rdir && rdir->ps2_cdfs)
+   if (rdir && path_is_ps2_cdfs(rdir->orig_path))
       return FIO_SO_ISDIR(rdir->ps2_cdfs_entry.stat.mode);
 #endif
 #ifdef HAVE_SMBCLIENT
@@ -148,7 +159,7 @@ rep(
    if (!rdir)
       return 0;
 #if defined(PS2)
-   if (rdir->ps2_cdfs)
+   if (path_is_ps2_cdfs(rdir->orig_path))
    {
       int ret = RETRO_VFS_STAT_IS_VALID | RETRO_VFS_STAT_IS_READONLY;
       if (size)
@@ -183,7 +194,7 @@ rep(
       return -1;
 
 #if defined(PS2)
-   if (rdir->ps2_cdfs)
+   if (path_is_ps2_cdfs(rdir->orig_path))
    {
       if (rdir->ps2_cdfs_dir >= 0)
          fioDclose(rdir->ps2_cdfs_dir);
@@ -199,4 +210,4 @@ rep(
 "PS2 fioDclose")
 
 p.write_text(s)
-print("Applied PS2 CDFS directory browsing patches")
+print("Applied hardened PS2 CDFS directory browsing patches")
