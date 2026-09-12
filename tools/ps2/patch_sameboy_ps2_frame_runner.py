@@ -8,7 +8,7 @@ if len(sys.argv) != 2:
 p = Path(sys.argv[1]) / "Core/gb.c"
 s = p.read_text()
 start = s.find("uint64_t GB_run_frame(GB_gameboy_t *gb)\n{")
-end = s.find("\nvoid GB_set_pixels_output", start)
+end = s.find("\nuint32_t *GB_get_pixels_output", start)
 if start < 0 or end < 0:
     raise SystemExit("GB_run_frame boundaries not found")
 
@@ -55,6 +55,11 @@ replacement = r'''uint64_t GB_run_frame(GB_gameboy_t *gb)
     gb->turbo_dont_skip = old_dont_skip;
     return gb->cycles_since_last_sync * 1000000000LL / 2 / GB_get_clock_rate(gb);
 #endif
+}
+
+void GB_set_pixels_output(GB_gameboy_t *gb, uint32_t *output)
+{
+    gb->screen = output;
 }
 '''
 
