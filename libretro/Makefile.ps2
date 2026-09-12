@@ -12,8 +12,10 @@ AR := mips64r5900el-ps2-elf-gcc-ar
 STATIC_LINKING := 1
 
 CFLAGS := -O3 -DNDEBUG \
-          -DPS2 -D_EE -G0 -march=r5900 \
-          -ffast-math -fomit-frame-pointer -fno-strict-aliasing \
+          -DPS2 -D_EE -DGB_PS2_FAST -G0 -march=r5900 -mtune=r5900 \
+          -flto -ffat-lto-objects -finline-functions \
+          -ffast-math -fno-math-errno -fno-trapping-math \
+          -fomit-frame-pointer -fno-strict-aliasing \
           -fno-stack-protector -ffunction-sections -fdata-sections \
           -D__LIBRETRO__ -D_GNU_SOURCE -D_USE_MATH_DEFINES \
           -std=gnu11
