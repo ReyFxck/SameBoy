@@ -28,10 +28,11 @@ jobs:
               apk add --no-cache make git util-linux python3 xorriso
               git config --global --add safe.directory /src
 
-              # PS2-specific SameBoy runtime defaults and Gearboy-style fast path.
+              # PS2-specific runtime defaults plus the conservative R5900 fast path.
+              # Keep SameBoy's stock framebuffer format and per-instruction timing;
+              # the more aggressive coarse scheduler / CT16 path corrupted games.
               python3 tools/ps2/patch_sameboy_ps2.py libretro/libretro.c
               python3 tools/ps2/patch_sameboy_ps2_fast.py .
-              python3 tools/ps2/patch_sameboy_ps2_frame_runner.py .
 
               # Static SameBoy libretro core for the R5900.
               make -C libretro -f Makefile.ps2 clean all
