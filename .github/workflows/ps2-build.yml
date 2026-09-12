@@ -41,6 +41,7 @@ jobs:
               git checkout 96bb0daa119b8a4c292f0ff9203f1bb771965e12
               cp ../libretro/sameboy_libretro_ps2.a ./libretro_ps2.a
               python3 ../tools/ps2/patch_retroarch_ps2.py .
+              python3 ../tools/ps2/patch_retroarch_ps2_dirs.py .
 
               # Full RetroArch PS2 menu/frontend with SameBoy linked statically.
               make -f Makefile.ps2 clean
