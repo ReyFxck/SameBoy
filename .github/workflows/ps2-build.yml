@@ -1,0 +1,37 @@
+name: PS2 build
+
+on:
+  push:
+    branches:
+      - ps2-port
+  pull_request:
+    branches:
+      - buildbot
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build SameBoy core for PS2
+        run: |
+          docker run --rm \
+            -v "$PWD:/src" \
+            -w /src \
+            ghcr.io/ps2dev/ps2dev:latest \
+            sh -c 'apk add --no-cache make git util-linux && make -C libretro -f Makefile.ps2 clean all'
+
+      - name: Inspect output
+        run: |
+          ls -lh libretro/sameboy_libretro_ps2.a
+          sha256sum libretro/sameboy_libretro_ps2.a
+
+      - name: Upload PS2 core
+        uses: actions/upload-artifact@v4
+        with:
+          name: sameboy-libretro-ps2
+          path: libretro/sameboy_libretro_ps2.a
