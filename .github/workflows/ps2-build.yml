@@ -28,7 +28,7 @@ jobs:
               apk add --no-cache make git util-linux python3 xorriso
               git config --global --add safe.directory /src
 
-              # PS2-specific SameBoy runtime defaults and R5900 fast path.
+              # PS2-specific SameBoy runtime defaults and Gearboy-style fast path.
               python3 tools/ps2/patch_sameboy_ps2.py libretro/libretro.c
               python3 tools/ps2/patch_sameboy_ps2_fast.py .
 
@@ -46,6 +46,7 @@ jobs:
               python3 ../tools/ps2/patch_retroarch_ps2_runtime.py .
               python3 ../tools/ps2/patch_retroarch_ps2_static_core.py .
               python3 ../tools/ps2/patch_retroarch_ps2_perf.py .
+              python3 ../tools/ps2/patch_retroarch_ps2_audio.py .
 
               # Full RetroArch PS2 menu/frontend with SameBoy linked statically.
               make -f Makefile.ps2 clean
