@@ -23,7 +23,7 @@ jobs:
             -v "$PWD:/src" \
             -w /src \
             ghcr.io/ps2dev/ps2dev:latest \
-            sh -lc '
+            sh -c '
               set -eux
               apk add --no-cache make git util-linux python3 xorriso
               git config --global --add safe.directory /src
