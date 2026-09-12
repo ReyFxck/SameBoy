@@ -43,6 +43,7 @@ jobs:
               python3 ../tools/ps2/patch_retroarch_ps2.py .
               python3 ../tools/ps2/patch_retroarch_ps2_dirs.py .
               python3 ../tools/ps2/patch_retroarch_ps2_runtime.py .
+              python3 ../tools/ps2/patch_retroarch_ps2_static_core.py .
 
               # Full RetroArch PS2 menu/frontend with SameBoy linked statically.
               make -f Makefile.ps2 clean
