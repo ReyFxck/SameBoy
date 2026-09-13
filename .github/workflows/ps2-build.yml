@@ -28,21 +28,24 @@ jobs:
               apk add --no-cache make git util-linux python3 xorriso
               git config --global --add safe.directory /src
 
-              # PS2 runtime defaults plus the conservative R5900 fast path.
-              # Keep the stock framebuffer format and per-instruction timing;
-              # the aggressive coarse scheduler and CT16 path corrupted games.
-              python3 tools/ps2/patch_sameboy_ps2.py libretro/libretro.c
-              python3 tools/ps2/patch_sameboy_ps2_fast.py .
-
-              # Static SameBoy libretro core for the R5900.
+              # The libretro fork we started from is SameBoy 0.15.4. Build the
+              # current 1.0.3 core instead, pinned for reproducibility, while
+              # keeping all PS2 port glue in this fork.
+              rm -rf SameBoyCurrent
+              git clone https://github.com/LIJI32/SameBoy.git SameBoyCurrent
+              cd SameBoyCurrent
+              git checkout 213a12ce93d66b105a113debd9396306066a7cfc
+              cp ../libretro/Makefile.ps2 libretro/Makefile.ps2
+              python3 ../tools/ps2/patch_upstream_sameboy_ps2.py .
               make -C libretro -f Makefile.ps2 clean all
+              cd ..
 
-              # Pin the frontend so our PS2 patches are reproducible.
+              # Pin the frontend so our PS2 CDFS/menu/audio patches are reproducible.
               rm -rf RetroArch
               git clone https://github.com/libretro/RetroArch.git RetroArch
               cd RetroArch
               git checkout 96bb0daa119b8a4c292f0ff9203f1bb771965e12
-              cp ../libretro/sameboy_libretro_ps2.a ./libretro_ps2.a
+              cp ../SameBoyCurrent/libretro/sameboy_libretro_ps2.a ./libretro_ps2.a
               python3 ../tools/ps2/patch_retroarch_ps2.py .
               python3 ../tools/ps2/patch_retroarch_ps2_dirs.py .
               python3 ../tools/ps2/patch_retroarch_ps2_runtime.py .
@@ -55,8 +58,6 @@ jobs:
               make -f Makefile.ps2 -j2
               cd ..
 
-              # Keep both an unpacked ELF for symbolizing/debugging and the
-              # launch ELF used by the disc image.
               rm -rf dist
               mkdir -p dist/iso/ROMS
               cp RetroArch/retroarch_ps2.elf dist/SAMEBOY_UNPACKED.ELF
@@ -69,8 +70,7 @@ jobs:
 
               printf "BOOT2 = cdrom0:\\\\SAMEBOY.ELF;1\nVER = 1.00\nVMODE = NTSC\n" > dist/iso/SYSTEM.CNF
 
-              # Copyrighted test ROMs never enter Git. Reserve a fixed-size
-              # extent which can be replaced byte-for-byte after CI.
+              # Copyrighted ROMs never enter Git. Reserve the fixed test extent.
               dd if=/dev/zero of=dist/iso/ROMS/MARIO.GB bs=65536 count=1
 
               xorriso -as mkisofs \
@@ -84,12 +84,12 @@ jobs:
 
       - name: Inspect output
         run: |
-          ls -lh libretro/sameboy_libretro_ps2.a \
+          ls -lh SameBoyCurrent/libretro/sameboy_libretro_ps2.a \
                  dist/SAMEBOY.ELF \
                  dist/SAMEBOY_UNPACKED.ELF \
                  dist/sameboy_ps2_template.iso
           cat dist/rom_lba.txt
-          sha256sum libretro/sameboy_libretro_ps2.a \
+          sha256sum SameBoyCurrent/libretro/sameboy_libretro_ps2.a \
                     dist/SAMEBOY.ELF \
                     dist/SAMEBOY_UNPACKED.ELF \
                     dist/sameboy_ps2_template.iso
@@ -99,7 +99,7 @@ jobs:
         with:
           name: sameboy-ps2-full
           path: |
-            libretro/sameboy_libretro_ps2.a
+            SameBoyCurrent/libretro/sameboy_libretro_ps2.a
             dist/SAMEBOY.ELF
             dist/SAMEBOY_UNPACKED.ELF
             dist/sameboy_ps2_template.iso
