@@ -18,7 +18,6 @@ CFLAGS := -O3 -DNDEBUG \
           -fno-stack-protector -fno-unwind-tables -fno-asynchronous-unwind-tables \
           -ffunction-sections -fdata-sections -fno-ident \
           -D__LIBRETRO__ -D_GNU_SOURCE -D_USE_MATH_DEFINES \
-          -I$(PS2SDK)/ee/rpc/audsrv/include \
           -std=gnu11
 
 include Makefile.common
