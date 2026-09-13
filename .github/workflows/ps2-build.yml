@@ -36,6 +36,17 @@ jobs:
               cd SameBoyCurrent
               git checkout 213a12ce93d66b105a113debd9396306066a7cfc
               cp ../libretro/Makefile.ps2 libretro/Makefile.ps2
+
+              # The current upstream git tree keeps SameBoot as RGBDS source.
+              # Reuse the open-source prebuilt blobs already carried by the
+              # libretro fork so CI does not need a second toolchain. The two
+              # additional 1.x model blobs are aliases for now; DMG/CGB test
+              # paths use their exact existing blobs.
+              mkdir -p BootROMs/prebuilt
+              cp ../BootROMs/prebuilt/*.bin BootROMs/prebuilt/
+              cp BootROMs/prebuilt/cgb_boot.bin BootROMs/prebuilt/cgb0_boot.bin
+              cp BootROMs/prebuilt/dmg_boot.bin BootROMs/prebuilt/mgb_boot.bin
+
               python3 ../tools/ps2/patch_upstream_sameboy_ps2.py .
               make -C libretro -f Makefile.ps2 clean all
               cd ..
