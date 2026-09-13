@@ -1,8 +1,7 @@
 # SameBoy libretro core for PlayStation 2
 #
-# This is intentionally separate from the upstream Makefile while the PS2
-# port is being brought up. It builds a static libretro archive suitable for
-# linking into RetroArch's PS2 frontend.
+# Builds a static R5900 libretro archive for the RetroArch PS2 frontend.
+# This file is also copied into the pinned current SameBoy checkout by CI.
 
 CORE_DIR := ..
 TARGET := sameboy_libretro_ps2.a
@@ -12,12 +11,14 @@ AR := mips64r5900el-ps2-elf-gcc-ar
 STATIC_LINKING := 1
 
 CFLAGS := -O3 -DNDEBUG \
-          -DPS2 -D_EE -DGB_PS2_FAST -G0 -march=r5900 -mtune=r5900 \
+          -DPS2 -D_EE -G0 -march=r5900 -mtune=r5900 \
           -flto -ffat-lto-objects -finline-functions \
           -ffast-math -fno-math-errno -fno-trapping-math \
           -fomit-frame-pointer -fno-strict-aliasing \
-          -fno-stack-protector -ffunction-sections -fdata-sections \
+          -fno-stack-protector -fno-unwind-tables -fno-asynchronous-unwind-tables \
+          -ffunction-sections -fdata-sections -fno-ident \
           -D__LIBRETRO__ -D_GNU_SOURCE -D_USE_MATH_DEFINES \
+          -I$(PS2SDK)/ee/rpc/audsrv/include \
           -std=gnu11
 
 include Makefile.common
@@ -52,6 +53,8 @@ clean:
 	rm -f $(TARGET)
 	rm -f $(CORE_DIR)/libretro/agb_boot.c \
 	      $(CORE_DIR)/libretro/cgb_boot.c \
+	      $(CORE_DIR)/libretro/cgb0_boot.c \
+	      $(CORE_DIR)/libretro/mgb_boot.c \
 	      $(CORE_DIR)/libretro/dmg_boot.c \
 	      $(CORE_DIR)/libretro/sgb_boot.c \
 	      $(CORE_DIR)/libretro/sgb2_boot.c
