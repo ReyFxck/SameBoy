@@ -16,7 +16,11 @@ s = p.read_text()
 include_anchor = "#define WIIU_SAMPLE_RATE 48000\n"
 include_repl = """#define WIIU_SAMPLE_RATE 48000
 #ifdef PS2
-#include <audsrv.h>
+/* Keep the core independent from PS2SDK header layout. RetroArch already
+ * links audsrv, so the static core only needs the two RPC entry points used
+ * by the direct PS2 audio path. */
+extern int audsrv_wait_audio(int bytes);
+extern int audsrv_play_audio(const char *chunk, int bytes);
 #define PS2_SAMPLE_RATE 44100
 #endif
 """
