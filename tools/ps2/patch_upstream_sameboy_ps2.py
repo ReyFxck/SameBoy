@@ -9,19 +9,16 @@ root = Path(sys.argv[1])
 p = root / "libretro/libretro.c"
 s = p.read_text()
 
-# PS2 needs a sane host sample rate. Current SameBoy libretro normally asks
-# the core for half the Game Boy clock, which is useful on powerful hosts but
-# far too expensive for the EE. 44.1 kHz is native to audsrv and matches the
-# proven Gearboy PS2 path.
+# The R5900 does not need SameBoy's multi-megahertz libretro audio rate.
+# 22.05 kHz keeps Game Boy audio useful while cutting sample callback work in
+# half versus the previous PS2 build.
 include_anchor = "#define WIIU_SAMPLE_RATE 48000\n"
 include_repl = """#define WIIU_SAMPLE_RATE 48000
 #ifdef PS2
-/* Keep the core independent from PS2SDK header layout. RetroArch already
- * links audsrv, so the static core only needs the two RPC entry points used
- * by the direct PS2 audio path. */
-extern int audsrv_wait_audio(int bytes);
+/* RetroArch already links audsrv. Keep this PS2-only core patch independent
+ * from PS2SDK header layout and use the non-blocking queue primitive only. */
 extern int audsrv_play_audio(const char *chunk, int bytes);
-#define PS2_SAMPLE_RATE 44100
+#define PS2_SAMPLE_RATE 22050
 #endif
 """
 if include_anchor not in s:
@@ -46,10 +43,10 @@ if rate_anchor not in s:
     raise SystemExit("sample-rate setup anchor not found")
 s = s.replace(rate_anchor, rate_repl, 1)
 
-# Bypass RetroArch's generic audio mixing/resampling path on PS2. The PS2
-# frontend already initializes audsrv before loading the static core. Feeding
-# the frame's interleaved S16 stereo samples directly removes a layer that was
-# silent in our earlier builds and also avoids unnecessary resampling work.
+# FPS-first PS2 path: never wait for the IOP audio ring. audsrv_play_audio()
+# copies only what currently fits and returns immediately; if the ring is full
+# the tail is deliberately dropped. This prevents audio back-pressure from
+# stalling retro_run() and lets the EE spend its time emulating the Game Boy.
 audio_anchor = """    while (remaining_frames > 0) {
         size_t uploaded_frames = audio_batch_cb(buf_pos, remaining_frames);
         buf_pos += uploaded_frames * 2;
@@ -59,16 +56,9 @@ audio_anchor = """    while (remaining_frames > 0) {
 audio_repl = """#ifdef PS2
     if (remaining_frames > 0) {
         const int bytes = (int)remaining_frames * 2 * (int)sizeof(int16_t);
-        if (audsrv_wait_audio(bytes) >= 0) {
-            int written = audsrv_play_audio((const char *)buf_pos, bytes);
-            if (written > 0) {
-                size_t uploaded_frames = (size_t)written / (2 * sizeof(int16_t));
-                if (uploaded_frames > remaining_frames)
-                    uploaded_frames = remaining_frames;
-                buf_pos += uploaded_frames * 2;
-                remaining_frames -= uploaded_frames;
-            }
-        }
+        (void)audsrv_play_audio((const char *)buf_pos, bytes);
+        /* Whatever did not fit is intentionally dropped on PS2. */
+        remaining_frames = 0;
     }
 #else
     while (remaining_frames > 0) {
@@ -85,4 +75,4 @@ if audio_anchor not in s:
 s = s.replace(audio_anchor, audio_repl, 1)
 
 p.write_text(s)
-print("Applied SameBoy 1.x PS2 patch: 44.1 kHz + direct audsrv audio")
+print("Applied SameBoy 1.x PS2 fast audio patch: 22.05 kHz + non-blocking audsrv")
