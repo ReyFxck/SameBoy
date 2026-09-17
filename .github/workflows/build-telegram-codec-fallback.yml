@@ -31,10 +31,10 @@ jobs:
         run: gradle -p tools/TelegramCodecFallback :app:assembleDebug --stacktrace
 
       - name: Rename APK
-        run: cp tools/TelegramCodecFallback/app/build/outputs/apk/debug/app-debug.apk TelegramCodecFallback-v1.0-test1.apk
+        run: cp tools/TelegramCodecFallback/app/build/outputs/apk/debug/app-debug.apk TelegramCodecFallback-v1.1-test2.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: TelegramCodecFallback-v1.0-test1
-          path: TelegramCodecFallback-v1.0-test1.apk
+          name: TelegramCodecFallback-v1.1-test2
+          path: TelegramCodecFallback-v1.1-test2.apk
